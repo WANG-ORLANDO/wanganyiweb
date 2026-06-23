@@ -16,3 +16,18 @@ export async function onRequestPost(context) {
   await KV.put('messages', JSON.stringify(data));
   return Response.json({ success: true });
 }
+
+export async function onRequestDelete(context) {
+  const { KV, ADMIN_PASSWORD } = context.env;
+  const body = await context.request.json();
+  if (body.password !== ADMIN_PASSWORD) {
+    return Response.json({ error: '密码错误' }, { status: 403 });
+  }
+  const data = await KV.get('messages', { type: 'json' }) || [];
+  if (body.index < 0 || body.index >= data.length) {
+    return Response.json({ error: '留言不存在' }, { status: 400 });
+  }
+  data.splice(body.index, 1);
+  await KV.put('messages', JSON.stringify(data));
+  return Response.json({ success: true });
+}

@@ -284,8 +284,16 @@
 
   <!-- 留言箱 -->
   <section id="guestbook" class="max-w-6xl mx-auto px-6 py-24 fade-in">
-    <h2 class="text-3xl font-bold mb-6 tracking-tight">留言箱</h2>
+    <h2 id="guestbookTitle" class="text-3xl font-bold mb-6 tracking-tight">留言箱</h2>
     <p class="text-gray-400 mb-8 max-w-lg">留下你想说的话，我会认真看每一条。</p>
+    <div id="adminPanel" class="hidden max-w-lg mb-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <div class="flex items-center gap-3">
+        <input id="adminPassword" type="password" placeholder="管理员密码" class="flex-1 bg-dark border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-500">
+        <button onclick="adminLogin()" class="bg-white text-dark px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">验证</button>
+        <button onclick="adminLogout()" class="text-gray-500 hover:text-white text-sm">退出</button>
+      </div>
+      <p id="adminStatus" class="text-xs text-gray-500 mt-2"></p>
+    </div>
     <div class="max-w-lg">
       <div class="flex flex-col gap-4">
         <input id="msgName" type="text" placeholder="你的名字（选填）" class="bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 transition-colors">
@@ -499,21 +507,32 @@
     });
 
     // 留言箱
+    let isAdmin = false;
+    let adminPwd = '';
+    let allMessages = [];
+
     async function loadMessages() {
       try {
         const res = await fetch('/api/messages');
-        const msgs = await res.json();
-        const list = document.getElementById('msgList');
-        list.innerHTML = msgs.sort((a, b) => new Date(b.time) - new Date(a.time)).map(m => `
-          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="text-white text-sm font-medium">${m.name}</span>
-              <span class="text-gray-600 text-xs">${new Date(m.time).toLocaleString('zh-CN')}</span>
-            </div>
-            <p class="text-gray-400 text-sm">${m.content}</p>
-          </div>
-        `).join('');
+        allMessages = await res.json();
+        renderMessages();
       } catch (e) {}
+    }
+
+    function renderMessages() {
+      const list = document.getElementById('msgList');
+      const sorted = allMessages.map((m, i) => ({ ...m, originalIndex: allMessages.length - 1 - i }));
+      const sortedAsc = [...allMessages].map((m, i) => ({ ...m, originalIndex: i })).sort((a, b) => new Date(b.time) - new Date(a.time));
+      list.innerHTML = sortedAsc.map(m => `
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-white text-sm font-medium">${m.name}</span>
+            <span class="text-gray-600 text-xs">${new Date(m.time).toLocaleString('zh-CN')}</span>
+            ${isAdmin ? `<button onclick="deleteMsg(${m.originalIndex})" class="ml-auto text-gray-600 hover:text-red-400 text-xs transition-colors">删除</button>` : ''}
+          </div>
+          <p class="text-gray-400 text-sm">${m.content}</p>
+        </div>
+      `).join('');
     }
 
     async function submitMsg() {
@@ -529,6 +548,45 @@
       document.getElementById('msgContent').value = '';
       loadMessages();
     }
+
+    async function deleteMsg(index) {
+      if (!confirm('确定要删除这条留言吗？')) return;
+      const res = await fetch('/api/messages', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPwd, index })
+      });
+      const result = await res.json();
+      if (result.success) {
+        loadMessages();
+      } else {
+        alert('删除失败：' + (result.error || '未知错误'));
+        if (res.status === 403) adminLogout();
+      }
+    }
+
+    function adminLogin() {
+      const pwd = document.getElementById('adminPassword').value.trim();
+      if (!pwd) return;
+      adminPwd = pwd;
+      isAdmin = true;
+      document.getElementById('adminStatus').textContent = '已进入管理模式';
+      document.getElementById('adminStatus').className = 'text-xs text-green-500 mt-2';
+      renderMessages();
+    }
+
+    function adminLogout() {
+      isAdmin = false;
+      adminPwd = '';
+      document.getElementById('adminPassword').value = '';
+      document.getElementById('adminStatus').textContent = '';
+      document.getElementById('adminPanel').classList.add('hidden');
+      renderMessages();
+    }
+
+    document.getElementById('guestbookTitle').addEventListener('dblclick', () => {
+      document.getElementById('adminPanel').classList.toggle('hidden');
+    });
 
     loadMessages();
   </script>
