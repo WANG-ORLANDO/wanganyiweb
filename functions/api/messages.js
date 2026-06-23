@@ -19,8 +19,9 @@ export async function onRequestPost(context) {
 
 export async function onRequestDelete(context) {
   const { KV, ADMIN_PASSWORD } = context.env;
+  const password = context.request.headers.get('x-admin-password');
   const body = await context.request.json();
-  if (body.password !== ADMIN_PASSWORD) {
+  if (!ADMIN_PASSWORD || password !== ADMIN_PASSWORD) {
     return Response.json({ error: '密码错误' }, { status: 403 });
   }
   const data = await KV.get('messages', { type: 'json' }) || [];

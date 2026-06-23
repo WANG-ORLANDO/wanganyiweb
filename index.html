@@ -553,8 +553,8 @@
       if (!confirm('确定要删除这条留言吗？')) return;
       const res = await fetch('/api/messages', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: adminPwd, index })
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPwd },
+        body: JSON.stringify({ index })
       });
       const result = await res.json();
       if (result.success) {
