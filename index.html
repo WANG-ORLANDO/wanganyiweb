@@ -373,11 +373,23 @@
 
     bgMusic.addEventListener('timeupdate', updateProgress);
 
-    window.addEventListener('load', () => {
+    function tryPlay() {
       bgMusic.play().then(() => {
         isPlaying = true;
         updateIcons();
       }).catch(() => {});
+    }
+
+    window.addEventListener('load', () => {
+      tryPlay();
+      if (!isPlaying) {
+        document.addEventListener('click', function autoPlay() {
+          tryPlay();
+          if (isPlaying) {
+            document.removeEventListener('click', autoPlay);
+          }
+        });
+      }
     });
 
     function toggleMusic() {
