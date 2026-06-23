@@ -5,8 +5,19 @@ export async function onRequestGet(context) {
 }
 
 export async function onRequestPost(context) {
-  const { KV } = context.env;
+  const { KV, ADMIN_PASSWORD } = context.env;
   const body = await context.request.json();
+  const password = context.request.headers.get('x-admin-password');
+  const storedPassword = await KV.get('admin_password');
+  const validPassword = ADMIN_PASSWORD || storedPassword;
+  if (body.action === 'set_password' && password === validPassword) {
+    await KV.put('admin_password', body.new_password);
+    return Response.json({ success: true });
+  }
+  if (body.action === 'init_password' && !validPassword) {
+    await KV.put('admin_password', body.new_password);
+    return Response.json({ success: true });
+  }
   const data = await KV.get('messages', { type: 'json' }) || [];
   data.push({
     name: body.name || '匿名',
@@ -21,7 +32,9 @@ export async function onRequestDelete(context) {
   const { KV, ADMIN_PASSWORD } = context.env;
   const password = context.request.headers.get('x-admin-password');
   const body = await context.request.json();
-  if (!ADMIN_PASSWORD || password !== ADMIN_PASSWORD) {
+  const storedPassword = await KV.get('admin_password');
+  const validPassword = ADMIN_PASSWORD || storedPassword;
+  if (!validPassword || password !== validPassword) {
     return Response.json({ error: '密码错误' }, { status: 403 });
   }
   const data = await KV.get('messages', { type: 'json' }) || [];
