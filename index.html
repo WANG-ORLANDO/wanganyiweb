@@ -290,8 +290,12 @@
       <div class="flex items-center gap-3">
         <input id="adminPassword" type="password" placeholder="管理员密码" class="flex-1 bg-dark border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-500">
         <button onclick="adminLogin()" class="bg-white text-dark px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">验证</button>
-        <button onclick="initPassword()" class="text-gray-500 hover:text-white text-sm">首次设置</button>
+        <button onclick="showChangePwd()" class="text-gray-500 hover:text-white text-sm">修改密码</button>
         <button onclick="adminLogout()" class="text-gray-500 hover:text-white text-sm">退出</button>
+      </div>
+      <div id="changePwdRow" class="hidden mt-3 flex items-center gap-3">
+        <input id="newPassword" type="password" placeholder="新密码" class="flex-1 bg-dark border border-gray-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-500">
+        <button onclick="changePassword()" class="bg-white text-dark px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">确认修改</button>
       </div>
       <p id="adminStatus" class="text-xs text-gray-500 mt-2"></p>
     </div>
@@ -610,6 +614,36 @@
         renderMessages();
       } else {
         document.getElementById('adminStatus').textContent = '设置失败';
+        document.getElementById('adminStatus').className = 'text-xs text-red-500 mt-2';
+      }
+    }
+
+    function showChangePwd() {
+      if (!isAdmin) {
+        document.getElementById('adminStatus').textContent = '请先验证密码';
+        document.getElementById('adminStatus').className = 'text-xs text-yellow-500 mt-2';
+        return;
+      }
+      document.getElementById('changePwdRow').classList.toggle('hidden');
+    }
+
+    async function changePassword() {
+      const newPwd = document.getElementById('newPassword').value.trim();
+      if (!newPwd) return;
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPwd },
+        body: JSON.stringify({ action: 'set_password', new_password: newPwd })
+      });
+      const result = await res.json();
+      if (result.success) {
+        adminPwd = newPwd;
+        document.getElementById('adminStatus').textContent = '密码已修改';
+        document.getElementById('adminStatus').className = 'text-xs text-green-500 mt-2';
+        document.getElementById('changePwdRow').classList.add('hidden');
+        document.getElementById('newPassword').value = '';
+      } else {
+        document.getElementById('adminStatus').textContent = '修改失败：' + (result.error || '');
         document.getElementById('adminStatus').className = 'text-xs text-red-500 mt-2';
       }
     }

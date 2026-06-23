@@ -10,11 +10,10 @@ export async function onRequestPost(context) {
   const password = context.request.headers.get('x-admin-password');
   const storedPassword = await KV.get('admin_password');
   const validPassword = ADMIN_PASSWORD || storedPassword;
-  if (body.action === 'set_password' && password === validPassword) {
-    await KV.put('admin_password', body.new_password);
-    return Response.json({ success: true });
-  }
-  if (body.action === 'init_password' && !validPassword) {
+  if (body.action === 'set_password') {
+    if (!validPassword || password !== validPassword) {
+      return Response.json({ error: '旧密码错误' }, { status: 403 });
+    }
     await KV.put('admin_password', body.new_password);
     return Response.json({ success: true });
   }
