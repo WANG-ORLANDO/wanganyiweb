@@ -17,11 +17,26 @@ export async function onRequestPost(context) {
     await KV.put('admin_password', body.new_password);
     return Response.json({ success: true });
   }
+  if (body.action === 'reply') {
+    const data = await KV.get('messages', { type: 'json' }) || [];
+    if (body.msgIndex < 0 || body.msgIndex >= data.length) {
+      return Response.json({ error: '留言不存在' }, { status: 400 });
+    }
+    if (!data[body.msgIndex].replies) data[body.msgIndex].replies = [];
+    data[body.msgIndex].replies.push({
+      name: body.name || '匿名',
+      content: body.content,
+      time: new Date().toISOString()
+    });
+    await KV.put('messages', JSON.stringify(data));
+    return Response.json({ success: true });
+  }
   const data = await KV.get('messages', { type: 'json' }) || [];
   data.push({
     name: body.name || '匿名',
     content: body.content,
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
+    replies: []
   });
   await KV.put('messages', JSON.stringify(data));
   return Response.json({ success: true });
@@ -37,6 +52,18 @@ export async function onRequestDelete(context) {
     return Response.json({ error: '密码错误' }, { status: 403 });
   }
   const data = await KV.get('messages', { type: 'json' }) || [];
+  if (body.replyIndex !== undefined) {
+    if (body.msgIndex < 0 || body.msgIndex >= data.length) {
+      return Response.json({ error: '留言不存在' }, { status: 400 });
+    }
+    const replies = data[body.msgIndex].replies || [];
+    if (body.replyIndex < 0 || body.replyIndex >= replies.length) {
+      return Response.json({ error: '回复不存在' }, { status: 400 });
+    }
+    replies.splice(body.replyIndex, 1);
+    await KV.put('messages', JSON.stringify(data));
+    return Response.json({ success: true });
+  }
   if (body.index < 0 || body.index >= data.length) {
     return Response.json({ error: '留言不存在' }, { status: 400 });
   }

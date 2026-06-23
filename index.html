@@ -526,18 +526,72 @@
 
     function renderMessages() {
       const list = document.getElementById('msgList');
-      const sorted = allMessages.map((m, i) => ({ ...m, originalIndex: allMessages.length - 1 - i }));
       const sortedAsc = [...allMessages].map((m, i) => ({ ...m, originalIndex: i })).sort((a, b) => new Date(b.time) - new Date(a.time));
-      list.innerHTML = sortedAsc.map(m => `
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-white text-sm font-medium">${m.name}</span>
-            <span class="text-gray-600 text-xs">${new Date(m.time).toLocaleString('zh-CN')}</span>
-            ${isAdmin ? `<button onclick="deleteMsg(${m.originalIndex})" class="ml-auto text-gray-600 hover:text-red-400 text-xs transition-colors">删除</button>` : ''}
+      list.innerHTML = sortedAsc.map(m => {
+        const replies = (m.replies || []).map((r, ri) => `
+          <div class="flex items-start gap-2 pl-4 border-l border-gray-800 ml-2 mt-3">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-gray-300 text-xs font-medium">${r.name}</span>
+                <span class="text-gray-600 text-xs">${new Date(r.time).toLocaleString('zh-CN')}</span>
+                ${isAdmin ? `<button onclick="deleteReply(${m.originalIndex}, ${ri})" class="text-gray-600 hover:text-red-400 text-xs">删除</button>` : ''}
+              </div>
+              <p class="text-gray-400 text-xs">${r.content}</p>
+            </div>
           </div>
-          <p class="text-gray-400 text-sm">${m.content}</p>
-        </div>
-      `).join('');
+        `).join('');
+        return `
+          <div class="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-white text-sm font-medium">${m.name}</span>
+              <span class="text-gray-600 text-xs">${new Date(m.time).toLocaleString('zh-CN')}</span>
+              <button onclick="toggleReplyBox(${m.originalIndex})" class="ml-auto text-gray-600 hover:text-white text-xs transition-colors">回复</button>
+              ${isAdmin ? `<button onclick="deleteMsg(${m.originalIndex})" class="text-gray-600 hover:text-red-400 text-xs transition-colors">删除</button>` : ''}
+            </div>
+            <p class="text-gray-400 text-sm">${m.content}</p>
+            <div id="replyBox-${m.originalIndex}" class="hidden mt-3">
+              <div class="flex gap-2">
+                <input id="replyName-${m.originalIndex}" type="text" placeholder="你的名字（选填）" class="flex-1 bg-dark border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gray-500">
+                <input id="replyContent-${m.originalIndex}" type="text" placeholder="回复..." class="flex-1 bg-dark border border-gray-700 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gray-500">
+                <button onclick="submitReply(${m.originalIndex})" class="bg-white text-dark px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors">发送</button>
+              </div>
+            </div>
+            ${replies}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function toggleReplyBox(index) {
+      const box = document.getElementById(`replyBox-${index}`);
+      box.classList.toggle('hidden');
+    }
+
+    async function submitReply(msgIndex) {
+      const name = document.getElementById(`replyName-${msgIndex}`).value.trim();
+      const content = document.getElementById(`replyContent-${msgIndex}`).value.trim();
+      if (!content) return;
+      await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reply', msgIndex, name, content })
+      });
+      loadMessages();
+    }
+
+    async function deleteReply(msgIndex, replyIndex) {
+      if (!confirm('确定要删除这条回复吗？')) return;
+      const res = await fetch('/api/messages', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPwd },
+        body: JSON.stringify({ msgIndex, replyIndex })
+      });
+      const result = await res.json();
+      if (result.success) {
+        loadMessages();
+      } else {
+        alert('删除失败：' + (result.error || '未知错误'));
+      }
     }
 
     async function submitMsg() {
